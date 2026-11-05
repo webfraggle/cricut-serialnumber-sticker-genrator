@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seriennummern-Generator – Cricut Print Then Cut</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --panel: #fff; --ink: #1d1d1b; --muted: #6b6b66;
+    --line: #dcdcd6; --accent: #1f5f8b; --accent-ink: #fff; --warn: #a3470e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 18px 24px 6px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 20px; padding: 16px 24px 32px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .panel + .panel { margin-top: 16px; }
+  .panel h2 { margin: 0 0 12px; font-size: 15px; }
+  label { display: block; margin-bottom: 10px; }
+  label span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 3px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; font: inherit; background: #fff;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .check { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .check span { display: inline; margin: 0; color: var(--ink); font-size: 14px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+  button {
+    font: inherit; padding: 9px 14px; border-radius: 6px; border: 1px solid var(--accent);
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; width: 100%; margin-bottom: 8px;
+  }
+  button.secondary { background: #fff; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .size { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .facts { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+  .facts li { margin: 2px 0; }
+  .facts b { color: var(--ink); font-weight: 600; }
+  .msg { font-size: 13px; margin-top: 6px; min-height: 1.2em; }
+  .msg.warn { color: var(--warn); }
+  .msg.ok { color: #2b6a2b; }
+  .preview-head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .preview-head h2 { margin: 0; }
+  .preview-head .check { margin: 0; }
+  .preview-head select { width: auto; }
+  #previewWrap { overflow: auto; max-height: calc(100vh - 160px); background: #e9e9e4; border-radius: 6px; padding: 16px; }
+  #preview { display: block; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); margin: 0 auto; }
+  #preview.fit { width: 100%; max-width: 640px; height: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Seriennummern-Generator</h1>
+  <p>Schnittraster (SVG) und Druckbild (PNG) in gleicher Größe für Cricut Print Then Cut.</p>
+</header>
+
+<main>
+  <div>
+    <section class="panel">
+      <h2>Nummern</h2>
+      <label><span>Präfix</span><input type="text" id="prefix" value="MoBaDi-ZZA-" spellcheck="false"></label>
+      <label><span>Startnummer</span><input type="number" id="start" value="1" min="0" step="1"></label>
+      <div class="check"><input type="checkbox" id="dmOn" checked><span>Data-Matrix (nur Nummer) rechts</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Größe für Design Space</h2>
+      <div class="size" id="sizeOut">–</div>
+      <ul class="facts" id="facts"></ul>
+    </section>
+
+    <section class="panel">
+      <button id="btnSvg">SVG (Schnitt) herunterladen</button>
+      <button id="btnPng">PNG (Druck) herunterladen</button>
+      <button id="btnNext" class="secondary" hidden></button>
+      <div class="msg" id="msg"></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>Erweiterte Einstellungen</summary>
+        <div class="row2">
+          <label><span>Aufkleber Breite (mm)</span><input type="number" id="labelW" value="40" min="1" step="0.1"></label>
+          <label><span>Aufkleber Höhe (mm)</span><input type="number" id="labelH" value="5" min="1" step="0.1"></label>
+        </div>
+        <div class="row2">
+          <label><span>Nutzfläche Breite (mm)</span><input type="number" id="areaW" value="171" min="1" step="0.1"></label>
+          <label><span>Nutzfläche Höhe (mm)</span><input type="number" id="areaH" value="235" min="1" step="0.1"></label>
+        </div>
+        <div class="row2">
+          <label><span>Innenabstand (mm)</span><input type="number" id="margin" value="0.5" min="0" step="0.1"></label>
+          <label><span>PNG-Auflösung (dpi)</span><input type="number" id="dpi" value="1200" min="72" step="1"></label>
+        </div>
+        <label><span>Schriftart</span>
+          <select id="font">
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'DIN Alternate', 'Arial Narrow', Arial, sans-serif">DIN Alternate</option>
+            <option value="'Arial Narrow', Arial, sans-serif">Arial Narrow</option>
+            <option value="'Courier New', Courier, monospace">Courier New</option>
+            <option value="Menlo, Consolas, monospace">Menlo</option>
+          </select>
+        </label>
+        <div class="check"><input type="checkbox" id="bold" checked><span>Fett</span></div>
+        <button class="secondary" id="btnReset">Auf Standard zurücksetzen</button>
+      </details>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="preview-head">
+      <h2>Vorschau</h2>
+      <div class="check"><input type="checkbox" id="showCut" checked><span>Schnittlinien (rot) einblenden</span></div>
+      <select id="zoom">
+        <option value="fit">Ganzes Blatt</option>
+        <option value="8">Groß</option>
+        <option value="20">Detail</option>
+      </select>
+    </div>
+    <div id="previewWrap"><canvas id="preview" class="fit"></canvas></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// ==DATAMATRIX-START==
+// Data Matrix ECC200 encoder (ASCII mode, square symbols 10x10 … 26x26, single data region).
+const DataMatrix = (() => {
+  // [symbol size, data codewords, error correction codewords]
+  const SIZES = [[10,3,5],[12,5,7],[14,8,10],[16,12,12],[18,18,14],[20,22,18],[22,30,20],[24,36,24],[26,44,28]];
+
+  const EXP = new Array(512), LOG = new Array(256).fill(0);
+  { let x = 1; for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 301; }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255]; }
+  const mul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+
+  const genCache = {};
+  function generator(n) {
+    if (genCache[n]) return genCache[n];
+    let g = [1];
+    for (let i = 1; i <= n; i++) {
+      const ng = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) { ng[j] ^= g[j]; ng[j + 1] ^= mul(g[j], EXP[i]); }
+      g = ng;
+    }
+    return (genCache[n] = g);
+  }
+
+  function ecc(data, n) {
+    const g = generator(n), r = new Array(n).fill(0);
+    for (const d of data) {
+      const f = d ^ r[0];
+      r.shift(); r.push(0);
+      for (let j = 0; j < n; j++) r[j] ^= mul(g[j + 1], f);
+    }
+    return r;
+  }
+
+  function encodeAscii(text) {
+    const out = [], isDigit = c => c >= 48 && c <= 57;
+    for (let i = 0; i < text.length; ) {
+      const c = text.charCodeAt(i);
+      if (isDigit(c) && i + 1 < text.length && isDigit(text.charCodeAt(i + 1))) {
+        out.push(130 + (c - 48) * 10 + (text.charCodeAt(i + 1) - 48)); i += 2;
+      } else if (c < 128) { out.push(c + 1); i++; }
+      else if (c < 256) { out.push(235, c - 127); i++; }
+      else throw new Error("Zeichen nicht unterstützt: " + text[i]);
+    }
+    return out;
+  }
+
+  // ISO/IEC 16022 Annex F placement
+  function placement(nrow, ncol) {
+    const a = new Array(nrow * ncol).fill(0);
+    function module(row, col, chr, bit) {
+      if (row < 0) { row += nrow; col += 4 - ((nrow + 4) % 8); }
+      if (col < 0) { col += ncol; row += 4 - ((ncol + 4) % 8); }
+      a[row * ncol + col] = 10 * chr + bit;
+    }
+    function utah(row, col, chr) {
+      module(row - 2, col - 2, chr, 1); module(row - 2, col - 1, chr, 2);
+      module(row - 1, col - 2, chr, 3); module(row - 1, col - 1, chr, 4);
+      module(row - 1, col, chr, 5);     module(row, col - 2, chr, 6);
+      module(row, col - 1, chr, 7);     module(row, col, chr, 8);
+    }
+    function corner1(chr) {
+      module(nrow - 1, 0, chr, 1); module(nrow - 1, 1, chr, 2); module(nrow - 1, 2, chr, 3);
+      module(0, ncol - 2, chr, 4); module(0, ncol - 1, chr, 5); module(1, ncol - 1, chr, 6);
+      module(2, ncol - 1, chr, 7); module(3, ncol - 1, chr, 8);
+    }
+    function corner2(chr) {
+      module(nrow - 3, 0, chr, 1); module(nrow - 2, 0, chr, 2); module(nrow - 1, 0, chr, 3);
+      module(0, ncol - 4, chr, 4); module(0, ncol - 3, chr, 5); module(0, ncol - 2, chr, 6);
+      module(0, ncol - 1, chr, 7); module(1, ncol - 1, chr, 8);
+    }
+    function corner3(chr) {
+      module(nrow - 3, 0, chr, 1); module(nrow - 2, 0, chr, 2); module(nrow - 1, 0, chr, 3);
+      module(0, ncol - 2, chr, 4); module(0, ncol - 1, chr, 5); module(1, ncol - 1, chr, 6);
+      module(2, ncol - 1, chr, 7); module(3, ncol - 1, chr, 8);
+    }
+    function corner4(chr) {
+      module(nrow - 1, 0, chr, 1); module(nrow - 1, ncol - 1, chr, 2); module(0, ncol - 3, chr, 3);
+      module(0, ncol - 2, chr, 4); module(0, ncol - 1, chr, 5); module(1, ncol - 3, chr, 6);
+      module(1, ncol - 2, chr, 7); module(1, ncol - 1, chr, 8);
+    }
+    let chr = 1, row = 4, col = 0;
+    do {
+      if (row === nrow && col === 0) corner1(chr++);
+      if (row === nrow - 2 && col === 0 && ncol % 4) corner2(chr++);
+      if (row === nrow - 2 && col === 0 && ncol % 8 === 4) corner3(chr++);
+      if (row === nrow + 4 && col === 2 && !(ncol % 8)) corner4(chr++);
+      do {
+        if (row < nrow && col >= 0 && !a[row * ncol + col]) utah(row, col, chr++);
+        row -= 2; col += 2;
+      } while (row >= 0 && col < ncol);
+      row += 1; col += 3;
+      do {
+        if (row >= 0 && col < ncol && !a[row * ncol + col]) utah(row, col, chr++);
+        row += 2; col -= 2;
+      } while (row < nrow && col >= 0);
+      row += 3; col += 1;
+    } while (row < nrow || col < ncol);
+    if (!a[nrow * ncol - 1]) { a[nrow * ncol - 1] = 1; a[nrow * ncol - ncol - 2] = 1; }
+    return a;
+  }
+
+  // Returns { size, modules: boolean[size][size] } (true = dark), row 0 = top.
+  function encode(text) {
+    const data = encodeAscii(String(text));
+    const spec = SIZES.find(s => s[1] >= data.length);
+    if (!spec) throw new Error("Text zu lang für Data-Matrix");
+    const [size, dataCw, eccCw] = spec;
+    const n0 = data.length;
+    for (let k = n0; k < dataCw; k++) {
+      if (k === n0) data.push(129);
+      else { let v = 129 + ((149 * (k + 1)) % 253) + 1; if (v > 254) v -= 254; data.push(v); }
+    }
+    const cw = data.concat(ecc(data, eccCw));
+    const nr = size - 2, map = placement(nr, nr);
+    const m = Array.from({ length: size }, () => new Array(size).fill(false));
+    for (let c = 0; c < size; c++) { m[size - 1][c] = true; m[0][c] = (c % 2 === 0); }
+    for (let r = 0; r < size; r++) { m[r][0] = true; m[r][size - 1] = (r % 2 === 1); }
+    for (let r = 0; r < nr; r++) for (let c = 0; c < nr; c++) {
+      const v = map[r * nr + c];
+      let dark;
+      if (v === 1) dark = true;
+      else if (v === 0) dark = false;
+      else { const chr = Math.floor(v / 10), bit = v % 10; dark = ((cw[chr - 1] >> (8 - bit)) & 1) === 1; }
+      m[r + 1][c + 1] = dark;
+    }
+    return { size, modules: m, codewords: cw };
+  }
+
+  return { encode, _ecc: ecc, _encodeAscii: encodeAscii };
+})();
+// ==DATAMATRIX-END==
+
+// ---------- Settings ----------
+const DEFAULTS = {
+  prefix: "MoBaDi-ZZA-", start: 1, dmOn: true,
+  labelW: 40, labelH: 5, areaW: 171, areaH: 235, margin: 0.5, dpi: 1200,
+  font: "Arial, Helvetica, sans-serif", bold: true,
+};
+const STORE_KEY = "seriennummernGenerator.v1";
+const $ = id => document.getElementById(id);
+const FIELDS = Object.keys(DEFAULTS);
+
+function loadStored() {
+  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE_KEY) || "{}")); }
+  catch { return Object.assign({}, DEFAULTS); }
+}
+function saveStored(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch { /* file:// in some browsers */ } }
+
+function applyToForm(s) {
+  for (const k of FIELDS) {
+    const el = $(k);
+    if (el.type === "checkbox") el.checked = !!s[k]; else el.value = s[k];
+  }
+}
+function readForm() {
+  const s = {};
+  for (const k of FIELDS) {
+    const el = $(k);
+    if (el.type === "checkbox") s[k] = el.checked;
+    else if (el.type === "number") s[k] = Number(el.value);
+    else s[k] = el.value;
+  }
+  return s;
+}
+
+function validate(s) {
+  if (!Number.isInteger(s.start) || s.start < 0) return "Startnummer muss eine ganze Zahl ≥ 0 sein.";
+  if (!Number.isSafeInteger(s.start + 100000)) return "Startnummer ist zu groß.";
+  for (const k of ["labelW", "labelH", "areaW", "areaH", "dpi"]) if (!(s[k] > 0)) return "Bitte gültige Maße eingeben.";
+  if (!(s.margin >= 0) || 2 * s.margin >= s.labelH) return "Innenabstand ist zu groß.";
+  return null;
+}
+
+// ---------- Layout ----------
+const EPS = 1e-9;
+function layout(s) {
+  const cols = Math.floor(s.areaW / s.labelW + EPS);
+  const rows = Math.floor(s.areaH / s.labelH + EPS);
+  return { cols, rows, count: cols * rows, W: round4(cols * s.labelW), H: round4(rows * s.labelH) };
+}
+const round4 = v => Math.round(v * 10000) / 10000;
+const fmtMm = v => round4(v).toLocaleString("de-DE", { maximumFractionDigits: 3 });
+const labelText = (s, n) => s.prefix + n;
+
+// Common font metrics for one sheet: font size (in px at given scale) and baseline offset.
+function textMetrics(ctx, s, L, scale, dmMm) {
+  const REF = 100;
+  ctx.font = `${s.bold ? "bold " : ""}${REF}px ${s.font}`;
+  let maxW = 0, asc = 0, desc = 0;
+  for (let i = 0; i < L.count; i++) {
+    const m = ctx.measureText(labelText(s, s.start + i));
+    maxW = Math.max(maxW, m.actualBoundingBoxRight + Math.max(0, m.actualBoundingBoxLeft));
+    asc = Math.max(asc, m.actualBoundingBoxAscent);
+    desc = Math.max(desc, m.actualBoundingBoxDescent);
+  }
+  const innerH = s.labelH - 2 * s.margin;
+  const textWmm = s.labelW - 2 * s.margin - (s.dmOn ? dmMm.size + dmMm.gap : 0);
+  const fitMm = Math.min(textWmm / maxW, innerH / (asc + desc)) * REF * 0.98; // font size in mm
+  const k = fitMm / REF;
+  return { fontMm: fitMm, fontPx: fitMm * scale, ascMm: asc * k, descMm: desc * k, textHmm: (asc + desc) * k, textWmm };
+}
+
+function dmLayout(s, L) {
+  const size = s.labelH - 2 * s.margin;
+  const maxSym = DataMatrix.encode(String(s.start + L.count - 1)).size;
+  return { size, maxSym, module: size / maxSym, gap: size / maxSym };
+}
+
+// Draw the whole print sheet. scale = px per mm.
+function drawSheet(ctx, s, L, scale) {
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = "#000";
+  const dm = dmLayout(s, L);
+  const tm = textMetrics(ctx, s, L, scale, dm);
+  ctx.font = `${s.bold ? "bold " : ""}${tm.fontPx}px ${s.font}`;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  for (let i = 0; i < L.count; i++) {
+    const col = Math.floor(i / L.rows), row = i % L.rows;   // column-wise numbering
+    const x0 = col * s.labelW, y0 = row * s.labelH;
+    const n = s.start + i;
+    const cy = y0 + s.labelH / 2;
+    const baseline = cy + (tm.ascMm - tm.descMm) / 2;
+    ctx.fillText(labelText(s, n), (x0 + s.margin) * scale, baseline * scale);
+    if (s.dmOn) {
+      const sym = DataMatrix.encode(String(n));
+      const dx = x0 + s.labelW - s.margin - dm.size, dy = y0 + s.margin;
+      const mod = dm.size / sym.size;
+      const edge = (o, k) => Math.round((o + k * mod) * scale);
+      for (let r = 0; r < sym.size; r++) {
+        const ya = edge(dy, r), yb = edge(dy, r + 1);
+        for (let c = 0; c < sym.size; c++) {
+          if (!sym.modules[r][c]) continue;
+          let c2 = c; while (c2 + 1 < sym.size && sym.modules[r][c2 + 1]) c2++;
+          const xa = edge(dx, c), xb = edge(dx, c2 + 1);
+          ctx.fillRect(xa, ya, xb - xa, yb - ya);
+          c = c2;
+        }
+      }
+    }
+  }
+  return { tm, dm };
+}
+
+function drawCutOverlay(ctx, s, L, scale) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(220,30,30,.85)";
+  ctx.lineWidth = Math.max(1, 0.1 * scale);
+  ctx.beginPath();
+  for (let c = 1; c < L.cols; c++) { const x = c * s.labelW * scale; ctx.moveTo(x, 0); ctx.lineTo(x, L.H * scale); }
+  for (let r = 1; r < L.rows; r++) { const y = r * s.labelH * scale; ctx.moveTo(0, y); ctx.lineTo(L.W * scale, y); }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ---------- SVG ----------
+function buildSvg(s, L) {
+  const f = v => String(round4(v));
+  let d = "";
+  for (let c = 1; c < L.cols; c++) d += `M${f(c * s.labelW)} 0V${f(L.H)}`;
+  for (let r = 1; r < L.rows; r++) d += `M0 ${f(r * s.labelH)}H${f(L.W)}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${f(L.W)}mm" height="${f(L.H)}mm" viewBox="0 0 ${f(L.W)} ${f(L.H)}">\n` +
+    `  <path d="${d}" fill="none" stroke="#000" stroke-width="0.1"/>\n</svg>\n`;
+}
+
+// ---------- PNG helpers ----------
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+// Insert/replace pHYs chunk so the PNG carries its dpi.
+function setPngDpi(buf, dpi) {
+  const src = new Uint8Array(buf);
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
+  dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+  dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  // walk chunks, drop existing pHYs, insert after IHDR
+  const parts = [src.subarray(0, 8)];
+  let p = 8;
+  const sv = new DataView(src.buffer, src.byteOffset, src.byteLength);
+  while (p < src.length) {
+    const len = sv.getUint32(p);
+    const type = String.fromCharCode(src[p + 4], src[p + 5], src[p + 6], src[p + 7]);
+    const end = p + 12 + len;
+    if (type !== "pHYs") parts.push(src.subarray(p, end));
+    if (type === "IHDR") parts.push(chunk);
+    p = end;
+  }
+  return new Blob(parts, { type: "image/png" });
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+const safeName = t => t.replace(/[^\w.\-]+/g, "_");
+
+// ---------- UI ----------
+const NEXT_KEY = STORE_KEY + ".nextStart";
+const getNext = () => { try { return localStorage.getItem(NEXT_KEY); } catch { return null; } };
+const setNext = v => { try { v == null ? localStorage.removeItem(NEXT_KEY) : localStorage.setItem(NEXT_KEY, String(v)); } catch {} };
+let state = loadStored();
+if (getNext() !== null && Number.isInteger(Number(getNext()))) state.start = Number(getNext());
+applyToForm(state);
+$("start").addEventListener("input", () => setNext(null));
+
+function setMsg(text, cls = "") { const m = $("msg"); m.textContent = text; m.className = "msg " + cls; }
+
+function update() {
+  state = readForm();
+  const err = validate(state);
+  saveStored(state);
+  const facts = $("facts");
+  if (err) { setMsg(err, "warn"); $("btnSvg").disabled = $("btnPng").disabled = true; return; }
+  const L = layout(state);
+  if (L.count < 1) { setMsg("Aufkleber passt nicht in die Nutzfläche.", "warn"); $("btnSvg").disabled = $("btnPng").disabled = true; return; }
+  $("btnSvg").disabled = $("btnPng").disabled = false;
+  if (!$("msg").classList.contains("ok")) setMsg("");
+
+  $("sizeOut").textContent = `${fmtMm(L.W)} × ${fmtMm(L.H)} mm`;
+
+  // preview
+  const zoom = $("zoom").value;
+  const scale = zoom === "fit" ? 6 : Number(zoom);
+  const cv = $("preview");
+  cv.width = Math.round(L.W * scale); cv.height = Math.round(L.H * scale);
+  cv.className = zoom === "fit" ? "fit" : "";
+  const ctx = cv.getContext("2d");
+  const { tm, dm } = drawSheet(ctx, state, L, scale);
+  if ($("showCut").checked) drawCutOverlay(ctx, state, L, scale);
+
+  const pxPerMm = state.dpi / 25.4;
+  const end = state.start + L.count - 1;
+  const items = [
+    `<b>${L.cols} × ${L.rows} = ${L.count}</b> Aufkleber (spaltenweise)`,
+    `Von <b>${esc(labelText(state, state.start))}</b> bis <b>${esc(labelText(state, end))}</b>`,
+    `PNG: ${Math.round(L.W * pxPerMm)} × ${Math.round(L.H * pxPerMm)} px bei ${state.dpi} dpi`,
+    `Schrift: Texthöhe ${fmtMm(tm.textHmm)} mm (${fmtMm(tm.fontMm / 0.3528)} pt)`,
+  ];
+  if (state.dmOn) items.push(`Data-Matrix: ${fmtMm(dm.size)} mm, ${dm.maxSym}×${dm.maxSym} Module à ${fmtMm(dm.module)} mm`);
+  items.push(`Rest Nutzfläche: ${fmtMm(state.areaW - L.W)} × ${fmtMm(state.areaH - L.H)} mm`);
+  facts.innerHTML = items.map(t => `<li>${t}</li>`).join("");
+  if (tm.textHmm < 1.5) setMsg("Achtung: Schrift wird sehr klein – Präfix kürzen oder Data-Matrix abschalten?", "warn");
+}
+const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let pending = 0;
+function scheduleUpdate() { $("msg").classList.remove("ok"); cancelAnimationFrame(pending); pending = requestAnimationFrame(update); }
+document.querySelectorAll("input, select").forEach(el => el.addEventListener("input", scheduleUpdate));
+
+$("btnSvg").addEventListener("click", () => {
+  const L = layout(state);
+  const name = `schnitt_${L.cols}x${L.rows}_${fmtMm(state.labelW).replace(",", "-")}x${fmtMm(state.labelH).replace(",", "-")}mm.svg`;
+  download(new Blob([buildSvg(state, L)], { type: "image/svg+xml" }), name);
+  setMsg(`SVG gespeichert: ${name}`, "ok");
+});
+
+$("btnPng").addEventListener("click", () => {
+  const s = state, L = layout(s);
+  const scale = s.dpi / 25.4;
+  const w = Math.round(L.W * scale), h = Math.round(L.H * scale);
+  $("btnPng").disabled = true;
+  setMsg(`Erzeuge PNG ${w} × ${h} px … (kann einige Sekunden dauern)`);
+  setTimeout(() => {
+    const cv = document.createElement("canvas");
+    const fail = () => {
+      cv.width = cv.height = 0;
+      $("btnPng").disabled = false;
+      setMsg("PNG konnte nicht erzeugt werden – zu groß für diesen Browser. Chrome oder Firefox verwenden oder dpi reduzieren.", "warn");
+    };
+    try {
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext("2d");
+      if (!ctx || cv.width !== w) return fail();
+      drawSheet(ctx, s, L, scale);
+    } catch (e) { console.error(e); return fail(); }
+    cv.toBlob(async blob => {
+      if (!blob) return fail();
+      const out = setPngDpi(await blob.arrayBuffer(), s.dpi);
+      cv.width = cv.height = 0;
+      const end = s.start + L.count - 1;
+      const name = safeName(`druck_${labelText(s, s.start)}_bis_${labelText(s, end)}_${s.dpi}dpi.png`);
+      download(out, name);
+      // remember next start
+      const next = end + 1;
+      setNext(next);
+      $("btnPng").disabled = false;
+      setMsg(`PNG gespeichert (${(out.size / 1048576).toFixed(1)} MB). Nächstes Blatt startet bei ${next}.`, "ok");
+      const b = $("btnNext");
+      b.hidden = false; b.textContent = `Weiter mit nächstem Blatt (ab ${next})`;
+      b.onclick = () => { $("start").value = next; b.hidden = true; setMsg(""); update(); };
+      // stays as suggestion for the next launch until the start number is edited by hand
+    }, "image/png");
+  }, 30);
+});
+
+$("btnReset").addEventListener("click", () => {
+  const keep = { prefix: $("prefix").value, start: Number($("start").value) };
+  applyToForm(Object.assign({}, DEFAULTS, keep));
+  update();
+});
+
+update();
+</script>
+</body>
+</html>
